@@ -31,6 +31,7 @@ var host = Host.CreateDefaultBuilder(args).UseWindowsService()
                 }).UseUrls("http://localhost:5009", "https://localhost:5001")   
                 .Configure(app =>
                 {
+                    app.UseCors();
                     app.UseRouting();
 
                     app.UseEndpoints(endpoints =>
@@ -51,7 +52,7 @@ var host = Host.CreateDefaultBuilder(args).UseWindowsService()
 
 // Run both concurrently
 await Task.WhenAll(host.RunAsync(), webHost.RunAsync());
-         
+
 /*
 var builder = WebApplication.CreateBuilder(args);
 
@@ -83,3 +84,46 @@ app.MapControllers();
 
 await Task.WhenAll(host.RunAsync(), app.RunAsync());
 */
+
+
+
+var webHost = new WebHostBuilder()
+    .UseKestrel()
+    .ConfigureServices(services =>
+    {
+        services.AddControllers();  // Add MVC services
+        services.AddEndpointsApiExplorer();
+
+        services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(builder =>
+            {
+                builder.AllowAnyOrigin()
+                       .AllowAnyHeader()
+                       .AllowAnyMethod();
+            });
+        });
+
+    }).UseUrls(hostUrl)
+    .Configure(app =>
+    {
+        app.UseCors(); // This should be before UseRouting and UseEndpoints
+        app.UseRouting();
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();  // Map controller routes
+        });
+
+        app.Run(async context =>
+        {
+            await context.Response.WriteAsync("Fallback handler");
+        });
+
+    })
+    .ConfigureLogging(logging =>
+    {
+        logging.AddConsole();
+    })
+    .Build();
+
+await Task.WhenAll(host.RunAsync(), webHost.RunAsync());
